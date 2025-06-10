@@ -1,9 +1,10 @@
-# VitePress Live2D 模型展示
+# VitePress Live2D
+
+🇬🇧 [English Version](README-US.md)
 
 这是一个基于VitePress的Live2D模型展示网站，支持展示和交互多个Live2D模型。
 
-
-## 预览
+## [预览/preview](https://live2d.youseeyou1daydayde.uk/)
 ### pc
 ![pc](https://live2d.youseeyou1daydayde.uk/preview/pc.png)
 ### mobile
