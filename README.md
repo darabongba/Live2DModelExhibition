@@ -2,6 +2,12 @@
 
 这是一个基于VitePress的Live2D模型展示网站，支持展示和交互多个Live2D模型。
 
+
+## 预览
+### pc
+![pc](https://live2d.youseeyou1daydayde.uk/preview/pc.png)
+### mobile
+![mb](https://live2d.youseeyou1daydayde.uk/preview/mb.png)
 ## 功能特点
 
 - 💻 使用VitePress构建，轻量快速
