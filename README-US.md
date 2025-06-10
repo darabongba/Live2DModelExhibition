@@ -2,7 +2,7 @@
 
 # VitePress Live2D Model
 
-🇨🇳 [中文版本](README.md)
+🇨🇳 [中文文档](README.md)
 
 This is a Live2D model showcase website built with **VitePress**, supporting the display and interaction of multiple Live2D models.
 
