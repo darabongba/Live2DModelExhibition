@@ -108,3 +108,7 @@ npm run serve
 ## 许可证
 
 请注意Live2D Cubism SDK的使用需遵循其官方许可证条款。
+ [MIT License](LICENSE).
+## 贡献
+
+欢迎以 PR 形式贡献各种 Live2D 模型到此项目，详情格式请参考 `public/live2d_3/model/` 目录下的示例。
