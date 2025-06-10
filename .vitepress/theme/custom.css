@@ -1,0 +1,24 @@
+:root {
+  --vp-nav-bg-color: var(--vp-c-bg);
+}
+
+.VPNav {
+  background-color: var(--vp-nav-bg-color) !important;
+  width: 100% !important;
+}
+
+.VPNavBar {
+  background-color: transparent !important;
+}
+
+.VPNavBar.fill {
+  background-color: var(--vp-nav-bg-color) !important;
+}
+
+.VPNavBar .container {
+  background-color: transparent !important;
+}
+
+.VPNavBar.has-sidebar .content {
+  background-color: transparent !important;
+}
