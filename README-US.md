@@ -116,7 +116,6 @@ The following are planned features, ordered by priority:
 
 Please note that the use of the Live2D Cubism SDK must comply with its official license terms.
 
-This project is released under the [MIT License](LICENSE).
 ## Contribution
 
 Contributions of various Live2D models in the form of pull requests (PR) are welcome. For format details, please refer to the examples in the `public/live2d_3/model/` directory.

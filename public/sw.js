@@ -1,6 +1,7 @@
 // 缓存版本，每次修改缓存策略时需更新此版本号
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v1.1';
 const CACHE_NAME = `live2d-cache-${CACHE_VERSION}`;
+const OFFLINE_CACHE = `live2d-offline-${CACHE_VERSION}`;
 
 // 模型基础路径
 const MODEL_BASE_PATH = '/model/Azue Lane(JP)/';
@@ -49,6 +50,77 @@ const MODEL_IDS = [
   "zhala_2"
 ];
 
+// 离线页面内容
+const OFFLINE_PAGE = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>离线模式 - Live2D Viewer</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-align: center;
+    }
+    .offline-container {
+      max-width: 400px;
+      padding: 2rem;
+    }
+    .offline-icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+    }
+    .offline-title {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+    .offline-message {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+    .retry-button {
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px solid white;
+      color: white;
+      padding: 0.8rem 2rem;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+    .retry-button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body>
+  <div class="offline-container">
+    <div class="offline-icon">📱</div>
+    <h1 class="offline-title">离线模式</h1>
+    <p class="offline-message">
+      您当前处于离线状态，但可以继续浏览已缓存的Live2D模型。
+      <br><br>
+      恢复网络连接后，您将能够访问所有功能。
+    </p>
+    <button class="retry-button" onclick="window.location.reload()">
+      重新连接
+    </button>
+  </div>
+</body>
+</html>
+`;
+
 // 为每个模型生成需要缓存的资源路径
 function generateModelCachePaths(modelId) {
   const basePath = MODEL_BASE_PATH + modelId;
@@ -84,6 +156,7 @@ function generateAllCachePaths() {
   const paths = [
     '/',
     '/index.html',
+    '/manifest.json',
     // Live2D核心JS文件
     '/live2d_3/js/pixi.min.js',
     '/live2d_3/js/live2dcubismcore.min.js',
@@ -149,8 +222,9 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(async (cache) => {
+    Promise.all([
+      // 缓存主要资源
+      caches.open(CACHE_NAME).then(async (cache) => {
         console.log('[Service Worker] 开始预缓存文件，总计', CACHE_URLS.length, '个资源');
         
         // 处理核心JS和CSS文件
@@ -158,7 +232,8 @@ self.addEventListener('install', (event) => {
           url.endsWith('.js') || 
           url.endsWith('.css') || 
           url === '/' || 
-          url === '/index.html'
+          url === '/index.html' ||
+          url === '/manifest.json'
         );
         
         try {
@@ -186,7 +261,15 @@ self.addEventListener('install', (event) => {
         
         console.log(`[Service Worker] 预缓存完成，成功: ${successCount}/${modelFiles.length}`);
         return true;
+      }),
+      
+      // 缓存离线页面
+      caches.open(OFFLINE_CACHE).then(cache => {
+        return cache.put('/offline', new Response(OFFLINE_PAGE, {
+          headers: { 'Content-Type': 'text/html; charset=UTF-8' }
+        }));
       })
+    ])
   );
 });
 
@@ -198,7 +281,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          if (cacheName !== CACHE_NAME && cacheName !== OFFLINE_CACHE) {
             console.log('[Service Worker] 删除旧缓存:', cacheName);
             return caches.delete(cacheName);
           }
@@ -230,7 +313,8 @@ self.addEventListener('fetch', (event) => {
   // 判断是否为静态JS/CSS资源
   const isStaticResource = 
     url.pathname.endsWith('.js') || 
-    url.pathname.endsWith('.css');
+    url.pathname.endsWith('.css') ||
+    url.pathname === '/manifest.json';
   
   if (isModelResource) {
     // 模型资源采用 Cache First 策略
@@ -239,8 +323,8 @@ self.addEventListener('fetch', (event) => {
     // 静态资源采用 Stale While Revalidate 策略
     event.respondWith(staleWhileRevalidateStrategy(request));
   } else {
-    // 其他资源采用 Network First 策略
-    event.respondWith(networkFirstStrategy(request));
+    // 其他资源采用 Network First 策略，离线时返回离线页面
+    event.respondWith(networkFirstWithOfflineStrategy(request));
   }
 });
 
@@ -271,8 +355,8 @@ async function cacheFirstStrategy(request) {
   }
 }
 
-// 网络优先策略 - 适用于可能经常变化的内容
-async function networkFirstStrategy(request) {
+// 网络优先策略，支持离线回退
+async function networkFirstWithOfflineStrategy(request) {
   try {
     const networkResponse = await fetch(request);
     // 只缓存成功的响应
@@ -286,6 +370,14 @@ async function networkFirstStrategy(request) {
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       return cachedResponse;
+    }
+    
+    // 如果是导航请求且网络和缓存都失败了，返回离线页面
+    if (request.mode === 'navigate') {
+      const offlineResponse = await caches.match('/offline');
+      if (offlineResponse) {
+        return offlineResponse;
+      }
     }
     
     // 如果网络和缓存都失败了
@@ -318,6 +410,62 @@ async function staleWhileRevalidateStrategy(request) {
   return cachedResponse || networkResponsePromise;
 }
 
+// 推送通知事件处理
+self.addEventListener('push', (event) => {
+  if (event.data) {
+    const data = event.data.json();
+    const options = {
+      body: data.body || '有新的Live2D模型可以查看！',
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-72x72.png',
+      vibrate: [100, 50, 100],
+      data: {
+        dateOfArrival: Date.now(),
+        primaryKey: data.primaryKey || 'default'
+      },
+      actions: [
+        {
+          action: 'explore',
+          title: '查看模型',
+          icon: '/icons/action-explore.png'
+        },
+        {
+          action: 'close',
+          title: '关闭',
+          icon: '/icons/action-close.png'
+        }
+      ]
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'Live2D Viewer', options)
+    );
+  }
+});
+
+// 通知点击事件处理
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  if (event.action === 'explore') {
+    event.waitUntil(
+      clients.openWindow('/')
+    );
+  } else if (event.action === 'close') {
+    // 关闭通知，不执行其他操作
+  } else {
+    // 默认行为：打开应用
+    event.waitUntil(
+      clients.matchAll().then(clientList => {
+        if (clientList.length > 0) {
+          return clientList[0].focus();
+        }
+        return clients.openWindow('/');
+      })
+    );
+  }
+});
+
 // 添加主动预缓存指定模型的方法
 self.addEventListener('message', (event) => {
   const data = event.data;
@@ -326,7 +474,10 @@ self.addEventListener('message', (event) => {
   if (data && data.type === 'CLEAR_CACHES') {
     console.log('[Service Worker] 收到清理缓存命令');
     event.waitUntil(
-      caches.delete(CACHE_NAME).then(() => {
+      Promise.all([
+        caches.delete(CACHE_NAME),
+        caches.delete(OFFLINE_CACHE)
+      ]).then(() => {
         console.log('[Service Worker] 缓存已清理');
         return self.clients.matchAll();
       }).then((clients) => {
@@ -366,5 +517,10 @@ self.addEventListener('message', (event) => {
         });
       })
     );
+  }
+
+  // 处理跳过等待命令
+  if (data && data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 }); 
