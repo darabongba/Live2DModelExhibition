@@ -22,3 +22,6 @@
 .VPNavBar.has-sidebar .content {
   background-color: transparent !important;
 }
+.VPContent.has-sidebar{
+  overflow-x: hidden;
+}
